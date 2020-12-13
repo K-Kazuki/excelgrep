@@ -10,40 +10,43 @@ import (
 func main() {
 	fmt.Println("START")
 
-	res := make(chan excelsearch.Xlsx)
-	wg := new(sync.WaitGroup)
+	files, err := excelsearch.Find("")
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(files)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		result, err := excelsearch.Grep("えー", "sample_files/sample.xlsx")
-		if err != nil {
-			fmt.Println(err)
+	word := "えー"
+
+	if len(files) > 0 {
+		res := make(chan excelsearch.Book)
+		wg := new(sync.WaitGroup)
+		for _, f := range files {
+			wg.Add(1)
+			go func(f string) {
+				defer wg.Done()
+				result, err := excelsearch.Grep(word, f)
+				if err != nil {
+					fmt.Println(err)
+				}
+				if len(result.Sheets) > 0 {
+					res <- result
+				}
+			}(f)
 		}
-		res <- result
-	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		result, err := excelsearch.Grep("長い文字", "sample_files/sample2.xlsx")
-		if err != nil {
-			fmt.Println(err)
-		}
-		res <- result
-	}()
+		go func() {
+			wg.Wait()
+			close(res)
+		}()
 
-	go func() {
-		wg.Wait()
-		close(res)
-	}()
-
-	for r := range res {
-		fmt.Printf("%s\n", r.BookName)
-		for _, s := range r.Sheets {
-			fmt.Printf("\t%s\n", s.SheetName)
-			for _, f := range s.Founds {
-				fmt.Printf("\t\t%s : %s\n", f.CellName, f.Found)
+		for r := range res {
+			fmt.Printf("%s\n", r.BookName)
+			for _, s := range r.Sheets {
+				fmt.Printf("\t%s\n", s.SheetName)
+				for _, f := range s.Founds {
+					fmt.Printf("\t\t%s : %s\n", f.CellName, f.Found)
+				}
 			}
 		}
 	}

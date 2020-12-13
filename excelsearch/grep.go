@@ -19,42 +19,99 @@ import (
 	}
 ]
 */
-type Xlsx struct {
+
+// xlsx ファイルの検索結果を表します。
+type Book struct {
+
+	// Book名（ファイル名）
 	BookName string
-	Sheets   []sheet
+
+	// １つの Book に含まれるすべてのシートのスライス
+	Sheets []sheet
 }
 
+// シートの検索結果を表します。
 type sheet struct {
+
+	// シート名
 	SheetName string
-	Founds    []found
+
+	// セルの検索結果のスライス
+	Founds []found
 }
 
+// １つのシートに含まれる全セルの検索結果を表します。
 type found struct {
+
+	// A1形式のセル番地
 	CellName string
-	Found    string
+
+	// 検索にヒットしたセルの文字列（一致箇所をハイライトしたセルの全文）
+	Found string
 }
 
-func Grep(sep string, xlsxPath string) (Xlsx, error) {
+// xlsxPath で指定された xlsx ファイルから sep に一致する箇所を検索します。
+func Grep(sep string, xlsxPath string) (Book, error) {
 	if len(xlsxPath) == 0 {
-		return Xlsx{}, nil
+		return Book{}, nil
 	}
 
 	// ファイルオープン
 	f, err := excelize.OpenFile(xlsxPath)
 	if err != nil {
 		fmt.Println("an error occurred while open xlsx file.")
-		return Xlsx{}, nil
+		return Book{}, nil
 	}
 
 	// 各シート毎に全セルを検索
-	sheets, err2 := searchXlsx(f, sep)
-	if err2 != nil {
-		fmt.Println(err2)
+	var sheets []sheet
+	for _, sheetName := range f.GetSheetList() {
+		// シートの全セルを取得
+		cols, err := f.GetCols(sheetName)
+		if err != nil {
+			fmt.Println(err)
+			return Book{}, err
+		}
+
+		// 文字列検索
+		var founds []found
+		for colNum, col := range cols {
+			for rowNum, rowCell := range col {
+				if len(rowCell) != 0 {
+					cellName, err := excelize.CoordinatesToCellName(colNum+1, rowNum+1)
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+
+					foundWord := ""
+					if s := strings.TrimSpace(rowCell); s != "" {
+						foundWord = search(s, sep)
+					}
+
+					if foundWord != "" {
+						findResult := found{
+							CellName: cellName,
+							Found:    foundWord,
+						}
+						founds = append(founds, findResult)
+					}
+				}
+			}
+		}
+
+		if len(founds) > 0 {
+			s := sheet{
+				SheetName: sheetName,
+				Founds:    founds,
+			}
+			sheets = append(sheets, s)
+		}
 	}
 
-	var book Xlsx
+	var book Book
 	if len(sheets) > 0 {
-		book = Xlsx{
+		book = Book{
 			BookName: xlsxPath,
 			Sheets:   sheets,
 		}
