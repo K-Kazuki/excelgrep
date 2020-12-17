@@ -1,55 +1,27 @@
+/*
+Copyright © 2020 NAME HERE <EMAIL ADDRESS>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package main
 
 import (
-	"fmt"
-	"sync"
-
-	"github.com/K-Kazuki/excel_grep/excelsearch"
+	"github.com/K-Kazuki/excel_grep/cmd"
+	"github.com/K-Kazuki/excel_grep/logger"
 )
 
 func main() {
-	fmt.Println("START")
-
-	files, err := excelsearch.Find("")
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(files)
-
-	word := "えー"
-
-	if len(files) > 0 {
-		res := make(chan excelsearch.Book)
-		wg := new(sync.WaitGroup)
-		for _, f := range files {
-			wg.Add(1)
-			go func(f string) {
-				defer wg.Done()
-				result, err := excelsearch.Grep(word, f)
-				if err != nil {
-					fmt.Println(err)
-				}
-				if len(result.Sheets) > 0 {
-					res <- result
-				}
-			}(f)
-		}
-
-		go func() {
-			wg.Wait()
-			close(res)
-		}()
-
-		for r := range res {
-			fmt.Printf("%s\n", r.BookName)
-			for _, s := range r.Sheets {
-				fmt.Printf("\t%s\n", s.SheetName)
-				for _, f := range s.Founds {
-					fmt.Printf("\t\t%s : %s\n", f.CellName, f.Found)
-				}
-			}
-		}
-	}
-
-	fmt.Println("END")
+	logger.Debugln("START")
+	cmd.Execute()
+	logger.Debugln("END")
 }
