@@ -40,7 +40,7 @@ type sheet struct {
 	Founds []found
 }
 
-// １つのシートに含まれる全セルの検索結果を表します。
+// １つのシートに含まれる全セルの検索結果を表す
 type found struct {
 
 	// A1形式のセル番地
@@ -50,8 +50,8 @@ type found struct {
 	Found string
 }
 
-// xlsxPath で指定された xlsx ファイルから sep に一致する箇所を検索します。
-func Grep(sep string, xlsxPath string) (Book, error) {
+// xlsxPath で指定された xlsx ファイルから sep に一致する箇所を検索
+func Grep(xlsxPath string, sep string) (Book, error) {
 	if len(xlsxPath) == 0 {
 		return Book{}, nil
 	}
@@ -59,8 +59,7 @@ func Grep(sep string, xlsxPath string) (Book, error) {
 	// ファイルオープン
 	f, err := excelize.OpenFile(xlsxPath)
 	if err != nil {
-		fmt.Println("an error occurred while open xlsx file.")
-		return Book{}, nil
+		return Book{}, err
 	}
 
 	// 各シート毎に全セルを検索
@@ -70,7 +69,7 @@ func Grep(sep string, xlsxPath string) (Book, error) {
 		cols, err := f.GetCols(sheetName)
 		if err != nil {
 			fmt.Println(err)
-			return Book{}, err
+			continue
 		}
 
 		// 文字列検索

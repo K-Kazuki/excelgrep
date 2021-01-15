@@ -17,51 +17,55 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/K-Kazuki/excel_grep/logger"
+	"github.com/spf13/cobra"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
 var cfgFile string
+var useVerboseLogger bool
 
 // rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "excel_grep",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+func NewCmdRoot() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "eg",
+		Short: "excel_grep (eg) recursively searches your current directory and grep the xlsx files.",
+		Long: `
+USAGE:
+		eg [OPTIONS] PATTERN [PATH ...]
+		command | eg [OPTIONS] PATTERN
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+ARGS:
+    <PATTERN>    A glob pattern used for  searching.
+		<PATH>...    A file or directory to search.`,
+		Args: cobra.MinimumNArgs(1),
+		Run:  runRootCmd,
+	}
+
+	cobra.OnInitialize(initConfig)
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.excel_grep.yaml)")
+	rootCmd.PersistentFlags().BoolVar(&useVerboseLogger, "verbose", false, "Verbose log enable flag")
+
+	return rootCmd
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	rootCmd := NewCmdRoot()
+	rootCmd.SetOutput(os.Stdout)
+
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		rootCmd.SetOutput(os.Stderr)
+		rootCmd.Println(err)
 		os.Exit(1)
 	}
-}
 
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.excel_grep.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	logger.Debugln("DONE")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -87,5 +91,10 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+
+	// ロガーを設定
+	if useVerboseLogger {
+		logger.SetLogger(logger.Verbose)
 	}
 }

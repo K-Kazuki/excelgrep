@@ -17,11 +17,17 @@ package main
 
 import (
 	"github.com/K-Kazuki/excel_grep/cmd"
-	"github.com/K-Kazuki/excel_grep/logger"
 )
 
 func main() {
-	logger.Debugln("START")
+	// traceFile, err := os.Create("trace_proc2.out")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// defer traceFile.Close()
+
+	// trace.Start(traceFile)
+	// defer trace.Stop()
 	cmd.Execute()
-	logger.Debugln("END")
 }

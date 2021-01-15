@@ -1,0 +1,125 @@
+package cmd
+
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
+	"sync"
+
+	"github.com/K-Kazuki/excel_grep/excelsearch"
+	"github.com/K-Kazuki/excel_grep/logger"
+	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
+)
+
+// メインコマンド
+// コマンドに指定されたパスのバリデーション
+// stdin(|) で渡されたパスのバリデーション
+// find 処理
+// grep 処理
+func runRootCmd(cmd *cobra.Command, args []string) {
+
+	// traceFile, err := os.Create("trace_proc2.out")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// defer traceFile.Close()
+
+	// trace.Start(traceFile)
+	// defer trace.Stop()
+
+	// 引数パターン
+	// ---- ↓↓↓↓コマンド引数 ----
+	// eg word /any/path
+	// eg word /any/path /any/path2
+	// eg word ./some*/*some*.xlsx
+	// ---- ↓↓↓pipe
+	// find /some/path -name "*.xlsx" | eg word
+
+	// コマンド引数やパイプで渡されたパターンとパスを取得する
+	pattern, paths, err := getArgs(args)
+	if err != nil {
+		cmd.Println(err.Error())
+	}
+	logger.Debugln(pattern)
+	logger.Debugln(strings.Join(paths, ","))
+
+	// find
+	var finds []string
+	for _, p := range paths {
+		find, err := excelsearch.Find(p)
+		if err != nil {
+			cmd.Println(err.Error())
+		}
+		finds = append(finds, find...)
+	}
+
+	// grep
+	logger.Debugln("grep part START")
+	wg := new(sync.WaitGroup)
+	wg.Add(len(finds))
+
+	// goroutine の上限を管理する channel
+	sem := make(chan struct{}, 1)
+	for i, f := range finds {
+		logger.Debugf("Loop %d: file: %s", i, f)
+
+		// channel に空データを入れてバッファを埋める
+		sem <- struct{}{}
+		go func(f string) {
+			logger.Debugln("go func START")
+			defer wg.Done()
+
+			// grep 処理
+			res, err := excelsearch.Grep(f, pattern)
+			logger.Debugln("excelsearch.Grep done")
+			if err != nil {
+				cmd.Println(err)
+			}
+
+			// 結果表示
+			if len(res.Sheets) > 0 {
+				cmd.Printf("%s\n", res.BookName)
+				for _, s := range res.Sheets {
+					cmd.Printf("\t%s\n", s.SheetName)
+					for _, f := range s.Founds {
+						cmd.Printf("\t\t%s : %s\n", f.CellName, f.Found)
+					}
+				}
+			}
+			logger.Debugln("print result done")
+
+			// 空データを取り出してバッファを空ける
+			<-sem
+			logger.Debugln("go func END")
+		}(f)
+	}
+}
+
+func getArgs(args []string) (string, []string, error) {
+	var pattern string
+	var paths []string
+
+	if terminal.IsTerminal(int(os.Stdin.Fd())) {
+		// コマンド引数の処理
+		// pattern １つ、path が１つ以上必要
+		if len(args) >= 2 {
+			pattern = args[0]
+			paths = append(paths, args[1:]...)
+		} else {
+			return "", nil, fmt.Errorf("Invalid args.")
+		}
+	} else {
+		// パイプ(stdin)の処理
+		// パイプのときにはパターンのみコマンド引数で指定されている
+		pattern = args[0]
+		b, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return "", nil, fmt.Errorf("Failed to read stdin.")
+		}
+		paths = append(paths, strings.Split(string(b), "\n")...)
+	}
+	return pattern, paths, nil
+}
