@@ -1,43 +1,67 @@
 package excelsearch
 
 import (
-	"reflect"
+	"encoding/json"
 	"testing"
+
+	"github.com/K-Kazuki/excel_grep/logger"
 )
 
-func Test_search(t *testing.T) {
-	type args struct {
-		s   string
-		sep string
-	}
+func setup() {
+	// logger.SetLogger(logger.Verbose)
+	logger.SetLogger(logger.Silent)
+}
 
+func TestGrep(t *testing.T) {
+	setup()
+
+	type args struct {
+		xlsxPath string
+		sep      string
+	}
 	tests := []struct {
-		name string
-		args args
-		want string
+		name    string
+		args    args
+		want    string
+		wantErr string
 	}{
 		{
-			"ケース１",
-			args{"検索対象の文字列", "検索"},
-			"検索対象の文字列",
+			"case 1",
+			args{"../testdata/sample_files/sample.xlsx", "abc"},
+			`{"book_name":"../testdata/sample_files/sample.xlsx","sheets":[{"sheet_name":"Sheet1","Founds":[{"cell_name":"A1","found":"\u001b[31;1mabc\u001b[0m\n"}]}]}`,
+			"",
 		},
 		{
-			"ケース2",
-			args{"検索対象の文字列2", "検索"},
-			"検索対象の文字列2",
+			"case 2",
+			args{"../testdata/sample_files/sample2.xlsx", "abc"},
+			`{"book_name":"../testdata/sample_files/sample2.xlsx","sheets":[{"sheet_name":"Sheet1","Founds":[{"cell_name":"A1","found":"\u001b[31;1mabc\u001b[0m\n"}]},{"sheet_name":"しーとに","Founds":[{"cell_name":"C1","found":"\u001b[31;1mabc\u001b[0m\n"}]}]}`,
+			"",
 		},
 		{
-			"ケース3",
-			args{"検索対象の文字列3", "検索"},
-			"検索対象の文字列3",
+			"case 3",
+			args{"../testdata/no_such_dir/sample.xlsx", "abc"},
+			``,
+			"open ../testdata/no_such_dir/sample.xlsx: no such file or directory",
 		},
 	}
 	for _, tt := range tests {
-		got := []byte(search(tt.args.s, tt.args.sep))
-		expected := []byte(tt.want)
 		t.Run(tt.name, func(t *testing.T) {
-			if reflect.DeepEqual(got, expected) {
-				t.Errorf("search() = %v, want %v", got, expected)
+			got, err := Grep(tt.args.xlsxPath, tt.args.sep)
+			if err != nil {
+				if err.Error() != tt.wantErr {
+					t.Errorf("Grep() error = %v, wantErr %v", err.Error(), tt.wantErr)
+				}
+				return
+			}
+
+			j, err := json.Marshal(got)
+			if err != nil {
+				t.Errorf("Failed marshal. error = %v", err)
+			}
+			gotJson := string(j)
+
+			if gotJson != tt.want {
+				t.Errorf("Grep() = %v, want %v", gotJson, tt.want)
 			}
 		})
 	}

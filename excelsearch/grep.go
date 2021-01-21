@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
+	"github.com/K-Kazuki/excel_grep/logger"
 	"github.com/fatih/color"
 )
 
@@ -24,41 +25,45 @@ import (
 type Book struct {
 
 	// Book名（ファイル名）
-	BookName string
+	BookName string `json:"book_name"`
 
 	// １つの Book に含まれるすべてのシートのスライス
-	Sheets []sheet
+	Sheets []sheet `json:"sheets"`
 }
 
 // シートの検索結果を表します。
 type sheet struct {
 
 	// シート名
-	SheetName string
+	SheetName string `json:"sheet_name"`
 
 	// セルの検索結果のスライス
-	Founds []found
+	Founds []found `jsoon:"founds"`
 }
 
 // １つのシートに含まれる全セルの検索結果を表す
 type found struct {
 
 	// A1形式のセル番地
-	CellName string
+	CellName string `json:"cell_name"`
 
 	// 検索にヒットしたセルの文字列（一致箇所をハイライトしたセルの全文）
-	Found string
+	Found string `json:"found"`
 }
 
 // xlsxPath で指定された xlsx ファイルから sep に一致する箇所を検索
 func Grep(xlsxPath string, sep string) (Book, error) {
+	logger.Debugf("Exec grep %s %s", sep, xlsxPath)
+
 	if len(xlsxPath) == 0 {
+		logger.Debugln("Done. xlsxPath is empty.")
 		return Book{}, nil
 	}
 
 	// ファイルオープン
 	f, err := excelize.OpenFile(xlsxPath)
 	if err != nil {
+		logger.Debugln("Done. Has Error.")
 		return Book{}, err
 	}
 
@@ -68,7 +73,7 @@ func Grep(xlsxPath string, sep string) (Book, error) {
 		// シートの全セルを取得
 		cols, err := f.GetCols(sheetName)
 		if err != nil {
-			fmt.Println(err)
+			logger.Debugln(err)
 			continue
 		}
 
@@ -79,7 +84,7 @@ func Grep(xlsxPath string, sep string) (Book, error) {
 				if len(rowCell) != 0 {
 					cellName, err := excelize.CoordinatesToCellName(colNum+1, rowNum+1)
 					if err != nil {
-						fmt.Println(err)
+						logger.Debugln(err)
 						continue
 					}
 
@@ -115,55 +120,9 @@ func Grep(xlsxPath string, sep string) (Book, error) {
 			Sheets:   sheets,
 		}
 	}
+
+	logger.Debugln("Done.")
 	return book, nil
-}
-
-func searchXlsx(f *excelize.File, sep string) ([]sheet, error) {
-	var sheets []sheet
-	for _, sheetName := range f.GetSheetList() {
-		// シートの全セルを取得
-		cols, err := f.GetCols(sheetName)
-		if err != nil {
-			fmt.Println(err)
-			return nil, err
-		}
-
-		// 文字列検索
-		var founds []found
-		for colNum, col := range cols {
-			for rowNum, rowCell := range col {
-				if len(rowCell) != 0 {
-					cellName, err := excelize.CoordinatesToCellName(colNum+1, rowNum+1)
-					if err != nil {
-						fmt.Println(err)
-						continue
-					}
-
-					foundWord := ""
-					if s := strings.TrimSpace(rowCell); s != "" {
-						foundWord = search(s, sep)
-					}
-
-					if foundWord != "" {
-						findResult := found{
-							CellName: cellName,
-							Found:    foundWord,
-						}
-						founds = append(founds, findResult)
-					}
-				}
-			}
-		}
-
-		if len(founds) > 0 {
-			s := sheet{
-				SheetName: sheetName,
-				Founds:    founds,
-			}
-			sheets = append(sheets, s)
-		}
-	}
-	return sheets, nil
 }
 
 func search(s string, sep string) string {
@@ -173,7 +132,6 @@ func search(s string, sep string) string {
 		before := string(s[:res])
 		after := string(s[res+len(sep):])
 		return fmt.Sprintf("%s%s%s\n", before, highlight, after)
-		// fmt.Println(foundWord)
 	}
 	return ""
 }
