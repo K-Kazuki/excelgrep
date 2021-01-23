@@ -1,0 +1,28 @@
+project_name: excel_grep
+env:
+  - GO111MODULE=on
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+builds:
+  - main: .
+    ldflags:
+      - -s -w
+      - -X github.com/K-Kazuki/excel_grep/cmd.Version={{.Version}}
+      - -X github.com/K-Kazuki/excel_grep/cmd.Revision={{.ShortCommit}}
+    env:
+      - CGO_ENABLED=0
+archives:
+  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+    replacements:
+      darwin: darwin
+      linux: linux
+      windows: windows
+      386: i386
+      amd64: x86_64
+    format_overrides:
+      - goos: windows
+        format: zip
+release:
+  prerelease: auto
