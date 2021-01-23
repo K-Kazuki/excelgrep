@@ -44,11 +44,14 @@ func runRootCmd(cmd *cobra.Command, args []string) {
 		cmd.Println(err.Error())
 	}
 	logger.Debugln(pattern)
-	logger.Debugln(strings.Join(paths, ","))
+	for _, p := range paths {
+		logger.Debugln(p)
+	}
 
 	// find
 	var finds []string
 	for _, p := range paths {
+		logger.Debugf("p: %v", p)
 		find, err := excelsearch.Find(p)
 		if err != nil {
 			cmd.Println(err.Error())
@@ -102,24 +105,32 @@ func getArgs(args []string) (string, []string, error) {
 	var pattern string
 	var paths []string
 
+	// コマンドの引数の処理
 	if terminal.IsTerminal(int(os.Stdin.Fd())) {
-		// コマンド引数の処理
-		// pattern １つ、path が１つ以上必要
-		if len(args) >= 2 {
+		// コマンドライン引数のみ指定された場合（パイプでない）
+		// 検索文字列: 1個, 検索パス: 0個以上
+		// 検索パスの指定がない場合は . （カレントディレクトリ）とする
+		switch len(args) {
+		case 0:
+			return "", nil, fmt.Errorf("Invalid args.")
+		case 1:
+			pattern = args[0]
+			paths = append(paths, ".")
+		default:
 			pattern = args[0]
 			paths = append(paths, args[1:]...)
-		} else {
-			return "", nil, fmt.Errorf("Invalid args.")
 		}
 	} else {
 		// パイプ(stdin)の処理
-		// パイプのときにはパターンのみコマンド引数で指定されている
+		// コマンドライン引数には検索文字列のみが指定されている
 		pattern = args[0]
 		b, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			return "", nil, fmt.Errorf("Failed to read stdin.")
 		}
-		paths = append(paths, strings.Split(string(b), "\n")...)
+		in := strings.Split(string(b), "\n")
+		in = in[:len(in)-1] // 最後の改行で空の要素が入ってしまうため削除
+		paths = append(paths, in...)
 	}
 	return pattern, paths, nil
 }

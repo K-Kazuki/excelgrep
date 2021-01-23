@@ -29,6 +29,10 @@ import (
 var cfgFile string
 var useVerboseLogger bool
 
+var Version = "unknown"
+var Revision = "unknown"
+var showVersion = false
+
 // rootCmd represents the base command when called without any subcommands
 func NewCmdRoot() *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -49,6 +53,9 @@ ARGS:
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.excel_grep.yaml)")
 	rootCmd.PersistentFlags().BoolVar(&useVerboseLogger, "verbose", false, "Verbose log enable flag")
+
+	// バージョン表示フラグ
+	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "Show version")
 
 	return rootCmd
 }
@@ -96,5 +103,11 @@ func initConfig() {
 	// ロガーを設定
 	if useVerboseLogger {
 		logger.SetLogger(logger.Verbose)
+	}
+
+	// バージョン表示
+	if showVersion {
+		fmt.Printf("version: %s\nrevision: %s\n", Version, Revision)
+		os.Exit(0)
 	}
 }
