@@ -7,6 +7,10 @@ before:
     - go mod download
 builds:
   - main: .
+    goos:
+    - linux
+    - darwin
+    - windows
     ldflags:
       - -s -w
       - -X github.com/K-Kazuki/excel_grep/cmd.Version={{.Version}}
